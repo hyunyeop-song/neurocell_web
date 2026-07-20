@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>NeuroCall - 환자 관리 종합 서버</title>
+    <style>
+        body { font-family: 'Helvetica', sans-serif; background-color: #1e1e2e; color: #cdd6f4; margin: 0; padding: 40px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { color: #ffffff; border-bottom: 2px solid #313244; padding-bottom: 10px; }
+        .form-box { background: #252538; padding: 25px; border-radius: 10px; margin-bottom: 30px; }
+        input, button { padding: 10px; margin: 5px; border-radius: 5px; border: none; }
+        input { width: 20%; background: #11111b; color: white; }
+        button { background: #a6e3a1; color: #11111b; font-weight: bold; cursor: pointer; }
+        .patient-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .card { background: #252538; padding: 20px; border-radius: 10px; border-left: 5px solid #89b4fa; cursor: pointer; position: relative; transition: 0.2s; }
+        .card:hover { transform: translateY(-3px); background: #313244; }
+        .card h3 { margin-top: 0; color: #ffffff; padding-right: 80px; }
+        /* 🚨 삭제 버튼 스타일 */
+        .btn-delete { 
+            position: absolute; 
+            top: 20px; 
+            right: 20px; 
+            background-color: #f38ba8; 
+            color: #11111b; 
+            padding: 6px 12px; 
+            border-radius: 5px; 
+            font-size: 12px; 
+            font-weight: bold; 
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .btn-delete:hover { background-color: #e64553; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🩺 NeuroCall 중앙 제어 시스템</h1>
+        
+        <div class="form-box">
+            <h3>[신규 입원 환자 등록]</h3>
+            <form action="/add_patient" method="POST">
+                <input type="text" name="room" placeholder="병실 (예: 302호)" required>
+                <input type="text" name="name" placeholder="환자명" required>
+                <input type="number" name="age" placeholder="나이" required>
+                <input type="text" name="diagnosis" placeholder="진단명 (예: ALS)" required>
+                <button type="submit">환자 등록 및 모니터링 추가</button>
+            </form>
+        </div>
+
+        <h2>📋 현재 입원 환자 실시간 모니터링 대상 목록</h2>
+        <div class="patient-grid">
+            {% for p in patients %}
+            <div class="card" onclick="location.href='/monitor/{{ p.id }}'">
+                <h3>🏥 {{ p.room }} - {{ p.name }} 환자</h3>
+                <p>나이: {{ p.age }}세 | 진단코드: <strong>{{ p.diagnosis }}</strong></p>
+                <p style="color: #a6e3a1; font-size: 13px;">➔ 클릭 시 실시간 AI 안구 추적 모니터링 시작</p>
+                
+                <!-- 🚨 [추가된 코드] 삭제(퇴원) 버튼 - 카드 클릭과 겹치지 않게 방지 처리 -->
+                <a href="/delete_patient/{{ p.id }}" class="btn-delete" onclick="event.stopPropagation(); if(!confirm('해당 환자를 목록에서 제거하시겠습니까?')) return false;">퇴원/삭제</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
