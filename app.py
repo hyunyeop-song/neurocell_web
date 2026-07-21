@@ -12,6 +12,9 @@ app = Flask(__name__)
 PATIENT_DB = "patients.json"
 LOG_FILE = "patient_event_log.csv"
 
+# 최근 발생한 실시간 비상 알림 기억용 글로벌 변수
+latest_alerts = {}
+
 # --- [초기 인프라 파일 세팅] ---
 if not os.path.exists(PATIENT_DB):
     with open(PATIENT_DB, "w", encoding="utf-8") as f:
@@ -33,9 +36,17 @@ def save_patients(patients):
 
 def log_patient_event(patient_id, event_type):
     now = datetime.now()
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
     with open(LOG_FILE, mode="a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow([now.strftime("%Y-%m-%d %H:%M:%S"), patient_id, now.hour, event_type])
+        writer.writerow([now_str, patient_id, now.hour, event_type])
+    
+    # 🚨 비상 알림 글로벌 상태 업데이트
+    latest_alerts[str(patient_id)] = {
+        "event": event_type,
+        "time": now_str,
+        "active": True
+    }
 
 # --- [AI 시계열 예측 알고리즘] ---
 def predict_probabilities(patient_id):
@@ -81,7 +92,7 @@ def generate_frames(patient_id):
             for face_landmarks in results.multi_face_landmarks:
                 landmarks = face_landmarks.landmark
                 
-                # 3D Head-Pose & 가림 필터 수식 계산
+                # 3D Head-Pose & 가림 필터
                 left_x, right_x, nose_x = landmarks[33].x, landmarks[263].x, landmarks[1].x
                 eye_dist = right_x - left_x
                 rel_nose = (nose_x - left_x) / eye_dist if eye_dist > 0 else 0.5
@@ -159,11 +170,9 @@ def add_patient():
     save_patients(patients)
     return redirect(url_for('index'))
 
-# 🚨 [추가된 코드] 환자 삭제(퇴원) 라우트
 @app.route('/delete_patient/<int:patient_id>')
 def delete_patient(patient_id):
     patients = load_patients()
-    # 입력받은 ID와 일치하지 않는 환자들만 남겨서 필터링 (즉, 일치하는 환자 제거)
     filtered_patients = [p for p in patients if p['id'] != patient_id]
     save_patients(filtered_patients)
     return redirect(url_for('index'))
@@ -181,6 +190,21 @@ def video_feed(patient_id):
 @app.route('/get_predictions/<int:patient_id>')
 def get_predictions(patient_id):
     return jsonify(predict_probabilities(patient_id))
+
+# 🚨 [신규 추가] 실시간 비상 알림 확인 API
+@app.route('/get_alert/<int:patient_id>')
+def get_alert(patient_id):
+    pid = str(patient_id)
+    alert = latest_alerts.get(pid, {"active": False})
+    return jsonify(alert)
+
+# 🚨 [신규 추가] 알림 해제(간호사 확인 완료) API
+@app.route('/clear_alert/<int:patient_id>', methods=['POST'])
+def clear_alert(patient_id):
+    pid = str(patient_id)
+    if pid in latest_alerts:
+        latest_alerts[pid]["active"] = False
+    return jsonify({"status": "success"})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
